@@ -4,40 +4,61 @@ import generateToken from "../utils/generateToken.js"
 import type { ProtectedRequest } from "../../types/app-request.js"
 import type { Response } from "express"
 import type mongoose from "mongoose"
+import { BadRequestError } from "../core/customError.js"
+import { userLoginSchema, userRegisterSchema } from "../routes/userSchema.js"
 
-const loginUser = asyncHandler(async (req: ProtectedRequest, res :Response) => {
-  const { email, password } = req.body
-
-  const user = await User.findOne({ email })
-
-  if (user && (await user.matchPassword(password))) {
-    generateToken(res, user._id as mongoose.Types.ObjectId )
-    res.json({
-      _id: user._id,
-      name: user.name,
-      email: user.email,
-      // isAdmin: user.isAdmin,
-    })
-  } else {
-    res.status(401)
-    throw new Error(" Invalid email or password")
+const loginUser = asyncHandler(async (req: ProtectedRequest, res: Response) => {
+  // 1. Validate request body first
+  const parsedData = userLoginSchema.safeParse(req.body);
+  if (!parsedData.success) {
+    throw new BadRequestError("Invalid email or password");
   }
-})
 
-const registerUser = asyncHandler(async (req, res) => {
+  const { email, password } = parsedData.data;
+
+  // 2. Find user
+  const user = await User.findOne({ email });
+  if (!user) {
+    throw new BadRequestError("Invalid email or password");
+  }
+
+  // 3. Verify password
+  const isPasswordMatch = await user.matchPassword(password);
+  if (!isPasswordMatch) {
+    throw new BadRequestError("Invalid email or password");
+  }
+
+  // 4. Generate token
+  generateToken(res, user._id as mongoose.Types.ObjectId);
+
+  // 5. Send response
+  res.status(200).json({
+    _id: user._id,
+    name: user.name,
+    email: user.email,
+  });
+});
+
+
+const registerUser = asyncHandler(async (req:ProtectedRequest, res:Response) => {
+
+  const  parsedData = userRegisterSchema.safeParse(req.body);
+  if(!parsedData.success){
+    throw new BadRequestError("req is not valid");
+  }
   const { name, email, password } = req.body
-
+ 
   const userExists = await User.findOne({ email })
 
   if (userExists) {
-    res.status(400)
-    throw new Error("User already Exists")
+    throw new BadRequestError("User already Exists")
+
   }
 
   const user = await User.create({ name, email, password })
 
   if (user) {
-    generateToken(res, user._id as mongoose.Types.ObjectId )
+    generateToken(res, user._id as mongoose.Types.ObjectId)
     res.status(201)
     res.json({
       _id: user._id,
@@ -46,8 +67,7 @@ const registerUser = asyncHandler(async (req, res) => {
       isAdmin: user.isAdmin,
     })
   } else {
-    res.status(400)
-    throw new Error("Invalid User Credentials")
+    throw new BadRequestError("Invalid Credentials")
   }
 })
 

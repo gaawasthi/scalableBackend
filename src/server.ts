@@ -1,28 +1,14 @@
-import express from "express"
-import cors from "cors"
-import "./database/index.js"
-import cookieParser from "cookie-parser"
-import userRoutes from "./routes/userRoutes.js"
-import { corsUrl, port } from "./config.js"
-import todoRoutes from "./routes/todoRoutes.js"
-import { errorHandler } from "./middleware/errorMiddleware.js"
+import { port } from "./config.js"
+import logger from "./core/Logger.js"
+import dotenv from "dotenv"
+import app from "./app.js"
 
-const PORT = port ?? 8000
+dotenv.config()
 
-export const app = express()
+app
+  .listen(port , ()=>{
 
-app.use(cors({ origin: corsUrl, optionsSuccessStatus: 200 }))
+    logger.info(`server running on port : ${port}`)      
 
-app.use(cookieParser())
-
-app.use(express.json())
-app.use(express.urlencoded({ extended: true }))
-
-app.use("/api/users", userRoutes)
-app.use("/api/todo", todoRoutes)
-
-app.use(errorHandler)
-
-app.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`)
-})
+  })
+  .on("error" , e =>logger.error(e))
